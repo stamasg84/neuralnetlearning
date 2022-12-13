@@ -1,4 +1,5 @@
 import numpy as np
+from mnist_loader import MnistData
 
 class Network:
     def __init__(self, sizes) -> None:
@@ -59,7 +60,9 @@ def testNetwork(network, input):
 
 
 sizes = [3,3,2]
-a = Network(sizes)
+digitRecognizerNet = Network(sizes)
+
+mnistData = MnistData()
 
 trainingInput = [(np.array((1, 2, 3)), 1), 
                  (np.array((3, 4, 5)), 9), 
@@ -72,4 +75,4 @@ trainingInput = [(np.array((1, 2, 3)), 1),
 
 testData = [ (np.array((1, 2, 3)), 1), (np.array((3, 4, 5)), 9) ]
 
-a.SGD(trainingInput, 2, 3, 0.1, lambda n: testNetwork(n, testData))
+digitRecognizerNet.SGD(trainingInput, 2, 3, 0.1, lambda n: testNetwork(n, testData))
