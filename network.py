@@ -14,7 +14,7 @@ class Network:
 
         self.rng = np.random.default_rng()
 
-        self.biases = [self.rng.standard_normal(layerSize) for layerSize in sizes[1:]]
+        self.biases = [self.rng.standard_normal((layerSize, 1)) for layerSize in sizes[1:]]
         self.weights = [self.rng.standard_normal((layerSize, previousLayerSize)) for previousLayerSize, layerSize in zip(sizes, sizes[1:])]    
 
     def feedforward(self, input : np.ndarray) -> FeedforwardResult:
@@ -44,16 +44,20 @@ class Network:
             self.rng.shuffle(shuffledTrainingInput)
             miniBatches = [shuffledTrainingInput[k:k+miniBatchSize] for k in range(0, len(trainingInput), miniBatchSize)]
 
-            for miniBatch in miniBatches:
-                self.updateMiniBatch(miniBatch, eta)
+            print('Learning on a total of {0} mini batches...'.format(len(miniBatches)))
             
+            for miniBatch in miniBatches:
+                self.updateMiniBatch(miniBatch, eta)            
+
             if testFunction:
-                print('Test result for epoch:')
+                print('End epoch testing...')
                 testFunction(self)
             
             print('Epoch {i} completed.'.format(i=i+1))
     
     def updateMiniBatch(self, miniBatch, eta):
+        '''Adjusts the weights and biases of the Network by calculating the nabla weights and biases based on the specified mini batch (as opposed to calculating
+        based on the complete training set)'''
         nablaWeights =[np.zeros_like(w) for w in self.weights]
         nablaBiases = [np.zeros_like(b) for b in self.biases]
 
@@ -62,6 +66,7 @@ class Network:
             nablaWeights = [nablaW + deltaNablaW for (nablaW, deltaNablaW) in zip(nablaWeights, deltaNablaWeights)]
             nablaBiases = [nablaB + deltaNablaB for (nablaB, deltaNablaB) in zip(nablaBiases, deltaNablaBiases)]
         
+        #learning with the gradients:
         self.weights = [w - (1./len(miniBatch) * eta * nablaW) for (w, nablaW) in zip(self.weights, nablaWeights)]
         self.biases = [b - (1./len(miniBatch) * eta * nablaB) for (b, nablaB) in zip(self.biases, nablaBiases)]
        
@@ -73,14 +78,14 @@ class Network:
         nablaWeights =[np.zeros_like(w) for w in self.weights]
         nablaBiases = [np.zeros_like(b) for b in self.biases]        
 
-        delta = (feedforwardResult.activations[-1] - y) * self.sigmoidFirstDerivative(feedforwardResult.zs[-1])
-        nablaBiases[-1] = delta
-        nablaWeights[-1] = delta @ feedforwardResult.activations[-2].transpose()
+        delta = (feedforwardResult.activations[-1] - y) * self.sigmoidFirstDerivative(feedforwardResult.zs[-1]) #BP1
+        nablaBiases[-1] = delta #BP3
+        nablaWeights[-1] = delta @ feedforwardResult.activations[-2].transpose() #BP4
 
         for l in range(2, len(self.biases) + 1):
-            delta = (self.weights[-l + 1].transpose() @ delta) * Network.sigmoidFirstDerivative(feedforwardResult.zs[-l])
-            nablaBiases[-l] = delta
-            nablaWeights[-l] = delta @ feedforwardResult.activations[-l - 1].transpose()
+            delta = (self.weights[-l + 1].transpose() @ delta) * Network.sigmoidFirstDerivative(feedforwardResult.zs[-l]) #BP2
+            nablaBiases[-l] = delta #BP3
+            nablaWeights[-l] = delta @ feedforwardResult.activations[-l - 1].transpose() #BP4
 
         return (nablaWeights, nablaBiases)
 
@@ -104,23 +109,14 @@ def testNetwork(network : Network, input):
     '''Assuming input is a list of tuples of inputData-expectedResult pairs, it prints a diagnostic on how many correct results the network yielded on the input'''
     resultsAndExpectations = [ (getNetworkResultForTestData(network, testData), expectedResult) for (testData, expectedResult) in input ]
     totalCorrectResults = sum(result==expectation for (result,expectation) in resultsAndExpectations)
-    print('Number of correct results:', totalCorrectResults)
+    print('Number of correct results: {0}/{1}'.format(totalCorrectResults, len(input)))
 
 
-sizes = [3,3,2]
+#using the Network for digit recognition:
+
+sizes = [784,30,10] #the input consists of images of 28*28 pixels = 784. The output layer has a neuron for each possible digit 
 digitRecognizerNet = Network(sizes)
 
 mnistData = MnistData()
 
-trainingInput = [(np.array((1, 2, 3)), 1), 
-                 (np.array((3, 4, 5)), 9), 
-                 (np.array((2, 2, 2)), 7), 
-                 (np.array((6, 1, 1)), 2), 
-                 (np.array((1, 2, 5)), 2), 
-                 (np.array((3, 4, 5)), 9), 
-                 (np.array((1, 2, 3)), 1), 
-                 (np.array((3, 4, 5)), 9)]
-
-testData = [ (np.array((1, 2, 3)), 1), (np.array((3, 4, 5)), 9) ]
-
-digitRecognizerNet.SGD(trainingInput, 2, 3, 0.1, lambda n: testNetwork(n, testData))
+digitRecognizerNet.SGD(mnistData.trainingData, 10, 30, 3.0, lambda n: testNetwork(n, mnistData.testData))

@@ -22,13 +22,13 @@ class MnistData:
 
         trainingInputs = [np.reshape(x, (784, 1)) for x in tr_d[0]]
         trainingResults = [MnistData.vectorizedResult(y) for y in tr_d[1]]
-        self.trainingData = zip(trainingInputs, trainingResults) #tuples of input vectors and expected output vectors
+        self.trainingData = list(zip(trainingInputs, trainingResults)) #tuples of input vectors and expected output vectors
 
         validationInputs = [np.reshape(x, (784, 1)) for x in va_d[0]]
-        self.validationData = zip(validationInputs, va_d[1]) #tuples of input vectors and expected output digits
+        self.validationData = list(zip(validationInputs, va_d[1])) #tuples of input vectors and expected output digits
 
         testInputs = [np.reshape(x, (784, 1)) for x in te_d[0]]
-        self.testData = zip(testInputs, te_d[1]) #tuples of input vectors and expected output digits  
+        self.testData = list(zip(testInputs, te_d[1])) #tuples of input vectors and expected output digits  
 
     @staticmethod
     def loadData():
