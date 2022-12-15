@@ -15,12 +15,7 @@ class Network:
         self.rng = np.random.default_rng()
 
         self.biases = [self.rng.standard_normal(layerSize) for layerSize in sizes[1:]]
-        self.weights = [self.rng.standard_normal((layerSize, previousLayerSize)) for previousLayerSize, layerSize in zip(sizes, sizes[1:])]
-
-    @staticmethod
-    def sigmoid(z :np.ndarray) -> np.ndarray:
-        '''Applies the sigma function to z. (vectorized application)'''
-        return 1 / (1 + np.exp(-z))
+        self.weights = [self.rng.standard_normal((layerSize, previousLayerSize)) for previousLayerSize, layerSize in zip(sizes, sizes[1:])]    
 
     def feedforward(self, input : np.ndarray) -> FeedforwardResult:
         '''Calculates the output of the network for the specified input and also saves the in between results
@@ -59,8 +54,47 @@ class Network:
             print('Epoch {i} completed.'.format(i=i+1))
     
     def updateMiniBatch(self, miniBatch, eta):
-        print(miniBatch)
+        nablaWeights =[np.zeros_like(w) for w in self.weights]
+        nablaBiases = [np.zeros_like(b) for b in self.biases]
+
+        for (input, y) in miniBatch:
+            deltaNablaWeights, deltaNablaBiases = self.backpropagate(input, y)
+            nablaWeights = [nablaW + deltaNablaW for (nablaW, deltaNablaW) in zip(nablaWeights, deltaNablaWeights)]
+            nablaBiases = [nablaB + deltaNablaB for (nablaB, deltaNablaB) in zip(nablaBiases, deltaNablaBiases)]
         
+        self.weights = [w - (1./len(miniBatch) * eta * nablaW) for (w, nablaW) in zip(self.weights, nablaWeights)]
+        self.biases = [b - (1./len(miniBatch) * eta * nablaB) for (b, nablaB) in zip(self.biases, nablaBiases)]
+       
+    def backpropagate(self, input:np.ndarray, y : np.ndarray):
+        '''Performs a feedforward and a backpropagation for a single input - expected output pair. Returns the derivative of the per input cost function
+        for the weights and biases in a tuple'''
+        feedforwardResult = self.feedforward(input)
+        
+        nablaWeights =[np.zeros_like(w) for w in self.weights]
+        nablaBiases = [np.zeros_like(b) for b in self.biases]        
+
+        delta = (feedforwardResult.activations[-1] - y) * self.sigmoidFirstDerivative(feedforwardResult.zs[-1])
+        nablaBiases[-1] = delta
+        nablaWeights[-1] = delta @ feedforwardResult.activations[-2].transpose()
+
+        for l in range(2, len(self.biases) + 1):
+            delta = (self.weights[-l + 1].transpose() @ delta) * Network.sigmoidFirstDerivative(feedforwardResult.zs[-l])
+            nablaBiases[-l] = delta
+            nablaWeights[-l] = delta @ feedforwardResult.activations[-l - 1].transpose()
+
+        return (nablaWeights, nablaBiases)
+
+    @staticmethod
+    def sigmoid(z :np.ndarray) -> np.ndarray:
+        '''Applies the sigma function to z. (vectorized application)'''
+        return 1 / (1 + np.exp(-z))
+    
+    @staticmethod
+    def sigmoidFirstDerivative(z :np.ndarray) -> np.ndarray:
+        '''Applies the sigma first derivative function to z. (vectorized application)'''
+        sigmoid = Network.sigmoid(z)
+        return sigmoid * (1 - sigmoid)    
+
 
 def getNetworkResultForTestData(network : Network, testData: np.ndarray):
     '''Returns the index of the neuron that yielded the highest result from the output layer of the network (for digit recognition this equals to the recognized digit)'''
