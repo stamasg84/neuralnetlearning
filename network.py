@@ -1,5 +1,7 @@
 import numpy as np
 from mnist_loader import MnistData
+import costfunctions
+import sigmoid
 
 class FeedforwardResult:
     def __init__(self, result : np.ndarray, activations : list[np.ndarray], zs : list[np.ndarray]) -> None:
@@ -8,9 +10,10 @@ class FeedforwardResult:
         self.zs : list[np.ndarray]= zs
 
 class Network:
-    def __init__(self, sizes) -> None:
+    def __init__(self, sizes, costFunction: costfunctions.CostFunction) -> None:
         self.sizes = sizes
         self.numLayers = len(sizes)
+        self.costFunction = costFunction
 
         self.rng = np.random.default_rng()
 
@@ -26,7 +29,7 @@ class Network:
         activationForLayer = input
         for w, b in zip(self.weights, self.biases):
             z = w @ activationForLayer + b
-            activationForLayer = Network.sigmoid(z)
+            activationForLayer = sigmoid.sigmoid(z)
 
             activations.append(activationForLayer)
             zs.append(z)
@@ -78,28 +81,16 @@ class Network:
         nablaWeights =[np.zeros_like(w) for w in self.weights]
         nablaBiases = [np.zeros_like(b) for b in self.biases]        
 
-        delta = (feedforwardResult.activations[-1] - y) * self.sigmoidFirstDerivative(feedforwardResult.zs[-1]) #BP1
+        delta = self.costFunction.Derivative(y, feedforwardResult.zs[-1]) #BP1
         nablaBiases[-1] = delta #BP3
         nablaWeights[-1] = delta @ feedforwardResult.activations[-2].transpose() #BP4
 
         for l in range(2, len(self.biases) + 1):
-            delta = (self.weights[-l + 1].transpose() @ delta) * Network.sigmoidFirstDerivative(feedforwardResult.zs[-l]) #BP2
+            delta = (self.weights[-l + 1].transpose() @ delta) * sigmoid.sigmoidFirstDerivative(feedforwardResult.zs[-l]) #BP2
             nablaBiases[-l] = delta #BP3
             nablaWeights[-l] = delta @ feedforwardResult.activations[-l - 1].transpose() #BP4
 
         return (nablaWeights, nablaBiases)
-
-    @staticmethod
-    def sigmoid(z :np.ndarray) -> np.ndarray:
-        '''Applies the sigma function to z. (vectorized application)'''
-        return 1 / (1 + np.exp(-z))
-    
-    @staticmethod
-    def sigmoidFirstDerivative(z :np.ndarray) -> np.ndarray:
-        '''Applies the sigma first derivative function to z. (vectorized application)'''
-        sigmoid = Network.sigmoid(z)
-        return sigmoid * (1 - sigmoid)    
-
 
 def getNetworkResultForTestData(network : Network, testData: np.ndarray):
     '''Returns the index of the neuron that yielded the highest result from the output layer of the network (for digit recognition this equals to the recognized digit)'''
@@ -115,8 +106,8 @@ def testNetwork(network : Network, input):
 #using the Network for digit recognition:
 
 sizes = [784,30,10] #the input consists of images of 28*28 pixels = 784. The output layer has a neuron for each possible digit 
-digitRecognizerNet = Network(sizes)
+digitRecognizerNet = Network(sizes, costfunctions.CrossEntropyCost())
 
 mnistData = MnistData()
 
-digitRecognizerNet.SGD(mnistData.trainingData, 10, 30, 3.0, lambda n: testNetwork(n, mnistData.testData))
+digitRecognizerNet.SGD(mnistData.trainingData, 10, 30, 0.5, lambda n: testNetwork(n, mnistData.testData))
